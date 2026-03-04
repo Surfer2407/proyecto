@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="es">
+<head>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width,initial-scale=1" />
+	<title>El Precio Justo - Mascotas</title>
+	<style>
+		body{font-family:Arial,Helvetica,sans-serif;margin:0;padding:16px;background:#f4f6f8;color:#222}
+		header{display:flex;align-items:center;justify-content:space-between}
+		h1{margin:0;font-size:20px}
+		.container{display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:12px}
+		.card{background:#fff;border-radius:8px;padding:12px;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+		.avatar{width:280px;height:280px;margin:0 auto;position:relative}
+		.pet-body{width:160px;height:160px;border-radius:80px;margin:30px auto;background:#f2c;position:relative}
+		.pet-ear{width:40px;height:60px;background:inherit;position:absolute;top:16px;border-radius:20px}
+		.ear-left{left:40px;transform:rotate(-20deg)}
+		.ear-right{right:40px;transform:rotate(20deg)}
+		.pet-eye{width:18px;height:18px;background:#111;border-radius:50%;position:absolute;top:80px}
+		.eye-left{left:70px}
+		.eye-right{right:70px}
+		.accessory{position:absolute;bottom:18px;left:50%;transform:translateX(-50%)}
+		select,input[type=number]{width:100%;padding:6px;margin:6px 0;border-radius:4px;border:1px solid #ddd}
+		button{background:#1976d2;color:#fff;border:none;padding:8px 10px;border-radius:6px;cursor:pointer}
+		.row{display:flex;gap:8px}
+		.shop-item{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px dashed #eee}
+		.items-list{max-height:320px;overflow:auto}
+		form .item-guess{display:flex;align-items:center;gap:8px;margin:6px 0}
+		.muted{color:#666;font-size:13px}
+	</style>
+</head>
+<body>
+	<header>
+		<h1>El Precio Justo - Mascotas (gatos y perros)</h1>
+		<div>
+			<strong>Saldo:</strong> <span id="balance">0</span> €
+		</div>
+	</header>
+
+	<div class="container">
+		<aside>
+			<div class="card">
+				<h3>Tu mascota</h3>
+				<div class="avatar">
+					<!-- SVG avatar will be loaded here (external SVG templates) -->
+					<div id="pet-svg-wrap" style="width:280px;height:280px"></div>
+					<div id="pet-accessory" class="accessory"></div>
+				</div>
+
+				<label>Tipo: <select id="pet-type"><option value="perro">Perro</option><option value="gato">Gato</option></select></label>
+				<label>Plantilla: <select id="pet-template"><option value="auto">Auto</option><option value="dog1">Perro realista</option><option value="cat1">Gato realista</option></select></label>
+				<label>Color cuerpo: <select id="color-select"></select></label>
+				<label>Orejas: <select id="ears-select"></select></label>
+				<label>Ojos: <select id="eyes-select"></select></label>
+				<label>Accesorio: <select id="accessory-select"></select></label>
+				<div class="muted">Combinaciones posibles: <span id="combos-count">0</span> (>=150)</div>
+				<button id="save-pet">Guardar mascota</button>
+			</div>
+
+			<div class="card" style="margin-top:12px">
+				<h3>Tienda</h3>
+				<div class="items-list" id="shop-list"></div>
+				<div class="muted">Compra ropa y accesorios para personalizar.</div>
+			</div>
+		</aside>
+
+		<main>
+			<div class="card">
+				<h3>Juego - Adivina el precio justo</h3>
+				<p class="muted">Se seleccionan 5 artículos aleatorios de una base procedimental de 150.000 artículos. Si aciertas (dentro del margen) los 5 precios, ganas el premio (suma de precios).</p>
+				<div>
+					<button id="start-round">Empezar ronda (5 artículos)</button>
+					<button id="show-sample">Mostrar ejemplo de artículo</button>
+				</div>
+				<label>Margen de acierto por artículo (€): <input id="tolerance" type="number" value="0" min="0" style="width:80px; margin-left:8px" /></label>
+				<form id="round-form" style="margin-top:12px;display:none">
+					<div id="items-container"></div>
+					<div style="margin-top:8px">
+						<button type="submit">Enviar respuestas</button>
+						<button type="button" id="cancel-round">Cancelar</button>
+					</div>
+				</form>
+				<div id="round-result" style="margin-top:12px"></div>
+			</div>
+			<div class="card" style="margin-top:12px">
+				<h3>Información técnica</h3>
+				<ul>
+					<li class="muted">Artículos disponibles: <span id="total-items">150000</span></li>
+					<li class="muted">Base de artículos: generada procedimentalmente (no requiere 150k ficheros)</li>
+				</ul>
+			</div>
+		</main>
+	</div>
+
+	<script>
+		// Config
+		const TOTAL_ITEMS = 150000;
+
+		// Pet customization options (product >150 combinations)
+		const colors = ['#f7c6c6','#c6f7d0','#c6e7f7','#f7ecc6','#e6c6f7','#f2d9c6','#ffd7a6','#d7ffd6'];
+		const ears = ['normal','puntiaguda','caida','pequeña','grande'];
+		const eyes = ['negro','azul','ojiv','marron'];
+		const accessories = ['ninguno','gafas','bigote','corbata','sombrero','pañuelo','lazo','chaleco'];
+
+		// Simple in-memory shop catalog (visual items)
+		const shopCatalog = [
+			{id:'gafas',name:'Gafas divertidas',price:50,apply:'gafas'},
+			{id:'bigote',name:'Bigote elegante',price:30,apply:'bigote'},
+			{id:'camisa',name:'Camisa a rayas',price:80,apply:'camisa'},
+			{id:'pantalones',name:'Pantalones',price:70,apply:'pantalones'},
+			{id:'sombrero',name:'Sombrero',price:90,apply:'sombrero'},
+			{id:'lentes_clasicas',name:'Lentes clásicas',price:65,apply:'gafas'},
+			{id:'chaleco',name:'Chaleco elegante',price:120,apply:'chaleco'},
+			{id:'lazo',name:'Lazo bonito',price:25,apply:'lazo'},
+			{id:'corbata',name:'Corbata deportiva',price:40,apply:'corbata'},
+			{id:'pañuelo',name:'Pañuelo de colores',price:35,apply:'pañuelo'}
+		];
+
+		// Imported items (from CSV) - if present, can replace or augment procedural items
+		let importedItems = JSON.parse(localStorage.getItem('pj_imported_items') || 'null') || [];
+
+		// UI for CSV import
+		const techCard = document.querySelector('main .card + .card .muted').parentElement;
+		// show an upload control in the Information técnica card
+		(function addCsvControls(){
+			const infoCard = document.querySelectorAll('.card')[2];
+			const wrapper = document.createElement('div');
+			wrapper.style.marginTop='8px';
+			wrapper.innerHTML = `
+				<div style="margin-top:8px">
+					<label>Cargar CSV de artículos: <input id="csv-upload" type="file" accept=".csv" /></label>
+					<button id="clear-csv" style="margin-left:8px">Borrar importados</button>
+					<div class="muted">Artículos importados: <span id="imported-count">${importedItems.length}</span></div>
+				</div>
+			`;
+			infoCard.appendChild(wrapper);
+			document.getElementById('csv-upload').addEventListener('change', e=>{const f = e.target.files[0]; if(f) parseCSVFile(f)});
+			document.getElementById('clear-csv').addEventListener('click', ()=>{importedItems=[];localStorage.removeItem('pj_imported_items');document.getElementById('imported-count').textContent='0';alert('Importados borrados')});
+		})();
+
+		// Player/profile (persist in localStorage)
+		const STORAGE_KEY = 'pj_profile_v1';
+		let profile = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null') || {balance:0,pet:{type:'perro',color:colors[0],ears:ears[0],eyes:eyes[0],accessory:'ninguno'},inventory:[]};
+
+		// Helpers: procedural item generator (names + price) supporting 150k+ unique items
+		const adj = ['Nuevo','Vintage','Ultra','Mini','Max','Pro','Eco','Deluxe','Compacto','Premium','Ligero','Rápido','Económico','Edición','Clásico'];
+		const noun = ['Auriculares','Cafetera','Taladro','Manta','Reloj','Juego de mesa','Set de cocina','Batidora','Aspiradora','Lampara','Cámara','Cuchillo','Silicona','Bolsa','Juguete','Herramienta','Cargador','Televisor','Altavoz','Zapatos','Bolso','Mochila'];
+		const model = ['X','S','Plus','2026','A1','B2','Elite','Master','Go','Lite','One','Prime','C100','M50'];
+
+		function getItemById(id){
+			// deterministic components from id
+			const a = adj[id % adj.length];
+			const n = noun[(Math.floor(id/adj.length) + id) % noun.length];
+			const m = model[(Math.floor(id/ (adj.length*noun.length)) + id) % model.length];
+			const name = `${a} ${n} ${m} #${id}`;
+			// price: base from id-derived seed, plus category multiplier
+			const base = ((id * 97) % 400) + 5; // 5..404
+			const multiplier = 1 + ((id % 13) / 10); // 1.0 .. 2.2
+			const price = Math.max(1, Math.round(base * multiplier));
+			return {id,name,price};
+		}
+
+		function randomItem(){
+			// Prefer imported items if available (mix: 80% imported when many, otherwise procedural)
+			if(importedItems && importedItems.length){
+				// if many imported, bias to imported
+				const useImported = (importedItems.length > 50) ? (Math.random() < 0.8) : true;
+				if(useImported){
+					const it = importedItems[Math.floor(Math.random()*importedItems.length)];
+					return {id: it.id, name: it.name, price: Number(it.price)};
+				}
+			}
+			const id = Math.floor(Math.random()*TOTAL_ITEMS)+1;
+			return getItemById(id);
+		}
+
+		// UI wiring
+		const balanceEl = document.getElementById('balance');
+		const combosCountEl = document.getElementById('combos-count');
+		const colorSelect = document.getElementById('color-select');
+		const earsSelect = document.getElementById('ears-select');
+		const eyesSelect = document.getElementById('eyes-select');
+		const accessorySelect = document.getElementById('accessory-select');
+		const petAccessoryEl = document.getElementById('pet-accessory');
+		const petTemplateEl = document.getElementById('pet-template');
+		const petSvgWrap = document.getElementById('pet-svg-wrap');
+		const petTypeEl = document.getElementById('pet-type');
+		const combos = colors.length * ears.length * eyes.length * accessories.length;
+
+		combosCountEl.textContent = combos;
+		document.getElementById('total-items').textContent = TOTAL_ITEMS;
+
+		// populate selects
+		colors.forEach(c=>{const opt=document.createElement('option');opt.value=c;opt.textContent=c;colorSelect.appendChild(opt)});
+		ears.forEach(e=>{const opt=document.createElement('option');opt.value=e;opt.textContent=e;earsSelect.appendChild(opt)});
+		eyes.forEach(e=>{const opt=document.createElement('option');opt.value=e;opt.textContent=e;eyesSelect.appendChild(opt)});
+		accessories.forEach(a=>{const opt=document.createElement('option');opt.value=a;opt.textContent=a;accessorySelect.appendChild(opt)});
+
+		// shop list
+		const shopList = document.getElementById('shop-list');
+		function renderShop(){
+			shopList.innerHTML='';
+			shopCatalog.forEach(it=>{
+				const div = document.createElement('div');div.className='shop-item';
+				div.innerHTML = `<div>${it.name} <span class="muted">(${it.price} €)</span></div>`;
+				const btn = document.createElement('button');btn.textContent='Comprar';
+				btn.onclick = ()=>{buyItem(it)};
+				div.appendChild(btn);
+				shopList.appendChild(div);
+			});
+		}
+
+		function buyItem(item){
+			if(profile.balance < item.price){alert('Saldo insuficiente');return}
+			profile.balance -= item.price;
+			profile.inventory.push(item.id);
+			// auto-equip visual items when possible
+			if(item.apply){
+				profile.equipped = profile.equipped || {};
+				profile.equipped[item.apply] = item.id;
+			}
+			saveProfile();renderBalance();renderShop();applyPetConfig();alert('Comprado: '+item.name);
+		}
+
+		// CSV parsing
+		function parseCSVFile(file){
+			const reader = new FileReader();
+			reader.onload = ()=>{
+				const txt = reader.result;
+				const lines = txt.split(/\r?\n/).map(l=>l.trim()).filter(Boolean);
+				const parsed = [];
+				for(const line of lines){
+					const cols = line.split(',');
+					// accept: id,name,price  OR name,price
+					if(cols.length >= 3){
+						parsed.push({id: cols[0].trim(), name: cols[1].trim(), price: Number(cols[2].trim())});
+					} else if(cols.length === 2){
+						const id = Date.now().toString(36) + Math.floor(Math.random()*1000);
+						parsed.push({id, name: cols[0].trim(), price: Number(cols[1].trim())});
+					}
+				}
+				if(parsed.length){
+					importedItems = parsed;
+					localStorage.setItem('pj_imported_items', JSON.stringify(importedItems));
+					document.getElementById('imported-count').textContent = importedItems.length;
+					alert('Importados: '+importedItems.length+' artículos');
+				} else { alert('No se han encontrado líneas válidas en el CSV'); }
+			};
+			reader.readAsText(file,'utf-8');
+		}
+
+		function saveProfile(){localStorage.setItem(STORAGE_KEY,JSON.stringify(profile))}
+		function renderBalance(){balanceEl.textContent = profile.balance}
+
+				// apply pet config to preview (SVG-enhanced)
+				function applyPetConfig(){
+					const body = document.getElementById('pet-body-shape');
+					const earL = document.getElementById('ear-left-shape');
+					const earR = document.getElementById('ear-right-shape');
+					const eyeL = document.getElementById('eye-left');
+					const eyeR = document.getElementById('eye-right');
+					body.setAttribute('fill', profile.pet.color);
+					earL.setAttribute('fill', profile.pet.color);
+					earR.setAttribute('fill', profile.pet.color);
+					// ears style: change shape using simple transforms for variety
+					switch(profile.pet.ears){
+						case 'puntiaguda': earL.setAttribute('d','M80 90 C68 50 100 30 120 70'); earR.setAttribute('d','M200 90 C212 50 180 30 160 70'); break;
+						case 'caida': earL.setAttribute('d','M80 90 C60 100 80 130 110 100'); earR.setAttribute('d','M200 90 C220 100 200 130 170 100'); break;
+						case 'pequeña': earL.setAttribute('d','M90 95 C85 80 100 70 115 88'); earR.setAttribute('d','M190 95 C195 80 180 70 165 88'); break;
+						case 'grande': earL.setAttribute('d','M70 85 C55 45 110 35 125 75'); earR.setAttribute('d','M210 85 C225 45 170 35 155 75'); break;
+						default: earL.setAttribute('d','M80 90 C70 60 100 40 120 70'); earR.setAttribute('d','M200 90 C210 60 180 40 160 70'); break;
+					}
+					// eyes color/shape
+					switch(profile.pet.eyes){
+						case 'azul': eyeL.setAttribute('fill','#2b6df3'); eyeR.setAttribute('fill','#2b6df3'); break;
+						case 'marron': eyeL.setAttribute('fill','#6b3f1f'); eyeR.setAttribute('fill','#6b3f1f'); break;
+						default: eyeL.setAttribute('fill','#111'); eyeR.setAttribute('fill','#111'); break;
+					}
+					// accessories layer (emoji placeholders)
+					const accLayer = document.getElementById('accessories-layer'); accLayer.innerHTML = '';
+					const eq = profile.equipped || {};
+					if(eq.gafas){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',120); t.setAttribute('y',128); t.setAttribute('font-size',28); t.textContent='🕶️'; accLayer.appendChild(t); }
+					if(eq.bigote){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',130); t.setAttribute('y',165); t.setAttribute('font-size',22); t.textContent='🥸'; accLayer.appendChild(t); }
+					if(eq.sombrero){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',115); t.setAttribute('y',80); t.setAttribute('font-size',32); t.textContent='🎩'; accLayer.appendChild(t); }
+					if(eq.chaleco){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',120); t.setAttribute('y',200); t.setAttribute('font-size',22); t.textContent='🧥'; accLayer.appendChild(t); }
+					if(eq.corbata || eq.lazo){ const t = document.createElementNS('http://www.w3.org/2000/svg','text'); t.setAttribute('x',138); t.setAttribute('y',184); t.setAttribute('font-size',20); t.textContent='👔'; accLayer.appendChild(t); }
+					// legacy accessory label if none equipped
+					petAccessoryEl.style.fontWeight='700';
+					if(!accLayer.children.length){
+						if(profile.pet.accessory && profile.pet.accessory !== 'ninguno') petAccessoryEl.textContent = profile.pet.accessory; else petAccessoryEl.textContent='';
+					} else { petAccessoryEl.textContent=''; }
+				}
+
+		// load profile into UI
+		function loadProfileToUI(){
+			renderBalance();
+			colorSelect.value = profile.pet.color;
+			earsSelect.value = profile.pet.ears;
+			eyesSelect.value = profile.pet.eyes;
+			accessorySelect.value = profile.pet.accessory;
+			petTypeEl.value = profile.pet.type || 'perro';
+			petTemplateEl.value = profile.pet.template || 'auto';
+			// load template svg
+			loadTemplate(profile.pet.template || 'auto').then(()=>applyPetConfig());
+		}
+
+		document.getElementById('save-pet').addEventListener('click',()=>{
+			profile.pet.type = petTypeEl.value;
+			profile.pet.color = colorSelect.value;
+			profile.pet.ears = earsSelect.value;
+			profile.pet.eyes = eyesSelect.value;
+			profile.pet.accessory = accessorySelect.value;
+			profile.pet.template = petTemplateEl.value || 'auto';
+			saveProfile();
+			loadTemplate(profile.pet.template || 'auto').then(()=>{applyPetConfig(); alert('Mascota guardada')});
+		});
+
+		// react to template/type changes
+		petTypeEl.addEventListener('change', ()=>{
+			profile.pet.type = petTypeEl.value; if(petTemplateEl.value === 'auto'){ loadTemplate('auto').then(()=>applyPetConfig()); }
+		});
+		petTemplateEl.addEventListener('change', ()=>{ loadTemplate(petTemplateEl.value).then(()=>applyPetConfig()); });
+
+		// load external svg template into wrapper
+		async function loadTemplate(name){
+			// if auto, choose based on pet type
+			const t = (name && name !== 'auto') ? name : (profile.pet.type === 'gato' ? 'cat1' : 'dog1');
+			try{
+				const res = await fetch(`assets/${t === 'dog1' ? 'dog_realistic.svg' : 'cat_realistic.svg'}`);
+				if(!res.ok) throw new Error('Not found');
+				const text = await res.text();
+				petSvgWrap.innerHTML = text;
+			}catch(e){
+				// fallback: simple placeholder SVG
+				petSvgWrap.innerHTML = `<svg viewBox='0 0 280 280' width='280' height='280'><ellipse id='pet-body-shape' cx='140' cy='150' rx='70' ry='70' fill='${profile.pet.color}'/></svg>`;
+			}
+		}
+
+		// Round/game logic
+		const startBtn = document.getElementById('start-round');
+		const roundForm = document.getElementById('round-form');
+		const itemsContainer = document.getElementById('items-container');
+		const roundResult = document.getElementById('round-result');
+		let currentItems = [];
+
+		startBtn.addEventListener('click',()=>{
+			currentItems = [];
+			itemsContainer.innerHTML='';
+			for(let i=0;i<5;i++){
+				const it = randomItem(); currentItems.push(it);
+				const wrapper = document.createElement('div');wrapper.className='item-guess';
+				wrapper.innerHTML = `<div style="flex:1">${it.name}</div><input type="number" name="guess-${i}" placeholder="€" required />`;
+				itemsContainer.appendChild(wrapper);
+			}
+			roundForm.style.display='block';roundResult.textContent='';window.scrollTo(0,document.body.scrollHeight);
+		});
+
+		document.getElementById('cancel-round').addEventListener('click',()=>{roundForm.style.display='none';currentItems=[]});
+
+		roundForm.addEventListener('submit',e=>{
+			e.preventDefault();
+			const form = e.target;let allWithin=true;let sumPrize=0;const incorrect=[];
+			const tol = Math.max(0, parseInt(document.getElementById('tolerance').value || '0',10));
+			currentItems.forEach((it,i)=>{
+				const v = parseInt(form[`guess-${i}`].value,10);
+				if(Math.abs(v - it.price) > tol){allWithin=false;incorrect.push({item:it,guess:v})}
+				sumPrize += it.price;
+			});
+			if(allWithin){profile.balance += sumPrize;saveProfile();renderBalance();roundResult.innerHTML = `<strong>¡Enhorabuena! Has acertado los 5 precios dentro de ${tol} € cada uno. Premio: ${sumPrize} €</strong>`;} else {
+				roundResult.innerHTML = `<div><strong>No acertaste todos dentro del margen.</strong></div><div class="muted">Se muestran los precios correctos:</div>`;
+				currentItems.forEach(it=>{const d=document.createElement('div');d.textContent=`${it.name} — precio correcto: ${it.price} €`;roundResult.appendChild(d)});
+			}
+			roundForm.style.display='none';
+		});
+
+		// sample article
+		document.getElementById('show-sample').addEventListener('click',()=>{const it=randomItem();alert(`Ejemplo: ${it.name}\nPrecio: ${it.price} €\n(ID: ${it.id})`)});
+
+		// initialize
+		renderShop();loadProfileToUI();
+	</script>
+</body>
+</html>

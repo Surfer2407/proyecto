@@ -1,0 +1,52 @@
+﻿[
+    {
+        "category":  "Moda",
+        "count":  8,
+        "avg_price":  93.38
+    },
+    {
+        "category":  "Cocina",
+        "count":  14,
+        "avg_price":  252.93
+    },
+    {
+        "category":  "ElectrÃ³nica",
+        "count":  24,
+        "avg_price":  836.79
+    },
+    {
+        "category":  "Otros",
+        "count":  8923,
+        "avg_price":  118.6
+    },
+    {
+        "category":  "Oficina",
+        "count":  12,
+        "avg_price":  295.17
+    },
+    {
+        "category":  "JardÃ­n",
+        "count":  1,
+        "avg_price":  175
+    },
+    {
+        "category":  "Hogar",
+        "count":  8,
+        "avg_price":  183.75
+    },
+    {
+        "category":  "Accesorios",
+        "count":  5,
+        "avg_price":  85.8
+    },
+    {
+        "category":  "Herramientas",
+        "count":  3,
+        "avg_price":  237
+    },
+    {
+        "category":  "Deportes",
+        "count":  2,
+        "avg_price":  247.5
+    }
+]

@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 280" width="280" height="280">
+  <defs>
+    <radialGradient id="furGrad" cx="50%" cy="40%">
+      <stop offset="0%" stop-color="#fff7ee" />
+      <stop offset="100%" stop-color="#e6c6b5" />
+    </radialGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.12"/></filter>
+  </defs>
+  <g id="pet-group" filter="url(#s)">
+    <!-- body -->
+    <ellipse id="pet-body-shape" cx="140" cy="160" rx="72" ry="72" fill="url(#furGrad)" />
+    <!-- head -->
+    <ellipse cx="140" cy="110" rx="56" ry="48" fill="url(#furGrad)" />
+    <!-- ears -->
+    <path id="ear-left-shape" d="M90 70 C70 40 110 30 120 70" fill="url(#furGrad)" />
+    <path id="ear-right-shape" d="M190 70 C210 40 170 30 160 70" fill="url(#furGrad)" />
+    <!-- face details -->
+    <circle id="eye-left" cx="123" cy="105" r="7" fill="#2b2b2b" />
+    <circle id="eye-right" cx="157" cy="105" r="7" fill="#2b2b2b" />
+    <ellipse id="snout" cx="140" cy="125" rx="18" ry="12" fill="#f6e6df" />
+    <circle id="nose" cx="140" cy="125" r="5" fill="#3b2b2b" />
+    <path id="mouth" d="M132 135 q8 6 16 0" stroke="#6b3" stroke-width="1.8" fill="none"/>
+  </g>
+  <g id="accessories-layer"></g>
+</svg>
